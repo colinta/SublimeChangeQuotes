@@ -1,0 +1,7 @@
+{
+  "repo": "SublimeChangeQuotes",
+  "name": "ChangeQuotes",
+  "description": "Converts single to double or double to single quotes.  Attempts to preserve correct escaping, though this could be improved I'm sure.",
+  "author": "Colin Thomas-Arnold (colinta)",
+  "homepage": "https://github.com/colinta/SublimeChangeQuotes"
+}
