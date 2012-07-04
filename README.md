@@ -17,8 +17,9 @@ Or:
     - Linux: ~/.Sublime Text 2/Packages/
 
 2. clone this repo
+3. Install keymaps for the commands (see Example.sublime-keymap for my preferred keys)
 
 Commands
 --------
 
-`change_quotes`
+`change_quotes`: Converts from single to double quotes.  Uses the Sublime Text grammar parsing, so it doesn't always "find" the quotes.
