@@ -128,9 +128,18 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             # escape "escape" with "\escape"
             inside_region = sublime.Region(a + 1, b)
             inside = self.view.substr(inside_region)
-            inside = inside.replace("\\" + quote_a, quote_a)
-            inside = inside.replace(escape, "\\" + escape)
-            self.view.replace(edit, inside_region, inside)
+            is_escaped = False
+            new_inside = ''
+            for c in inside:
+                if c == '\\':
+                    is_escaped = not is_escaped
+                    new_inside += '\\'
+                elif c == escape and not is_escaped:
+                    new_inside += '\\' + escape
+                else:
+                    is_escaped = False
+                    new_inside += c
+            self.view.replace(edit, inside_region, new_inside)
 
         self.view.sel().add(region)
 
