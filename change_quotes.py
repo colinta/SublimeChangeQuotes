@@ -78,53 +78,29 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 b -= 1
                 break
 
-        if self.view.score_selector(a, 'string.quoted.single.block.python') \
+        if self.view.score_selector(a, 'python,string.quoted.single.single-line') \
+                and self.view.substr(sublime.Region(a, a + 1)) in "ur":
+            a += 1
+            quote_a = quote_b = "'"
+        elif self.view.score_selector(a, "python,string.quoted.double.single-line") \
+                and self.view.substr(sublime.Region(a, a + 1)) in 'ur':
+            a += 1
+            quote_a = quote_b = '"'
+        elif self.view.score_selector(a, 'python,string.quoted.single.block') \
+                and self.view.substr(sublime.Region(a, a + 1)) in "ur":
+            a += 1
+            quote_a = quote_b = "'''"
+        elif self.view.score_selector(a, "python,string.quoted.double.block") \
+                and self.view.substr(sublime.Region(a, a + 1)) in 'ur':
+            a += 1
+            quote_a = quote_b = '"""'
+        elif self.view.score_selector(a, 'python,string.quoted.single.block') \
                 and self.view.substr(sublime.Region(a, a + 3)) == "'''" \
                 and self.view.substr(sublime.Region(b - 2, b + 1)) == "'''":
             quote_a = quote_b = "'''"
-        elif self.view.score_selector(a, "string.quoted.double.block.python") \
+        elif self.view.score_selector(a, "python,string.quoted.double.block") \
                 and self.view.substr(sublime.Region(a, a + 3)) == '"""' \
                 and self.view.substr(sublime.Region(b - 2, b + 1)) == '"""':
-            quote_a = quote_b = '"""'
-        elif self.view.score_selector(a, 'string.quoted.single.single-line.unicode.python') \
-                and self.view.substr(sublime.Region(a, a + 2)) == "u'" \
-                and self.view.substr(sublime.Region(b, b + 1)) == "'":
-            a += 1
-            quote_a = quote_b = "'"
-        elif self.view.score_selector(a, "string.quoted.double.single-line.unicode.python") \
-                and self.view.substr(sublime.Region(a, a + 2)) == 'u"' \
-                and self.view.substr(sublime.Region(b, b + 1)) == '"':
-            a += 1
-            quote_a = quote_b = '"'
-        elif self.view.score_selector(a, 'string.quoted.single.block.unicode.python') \
-                and self.view.substr(sublime.Region(a, a + 4)) == "u'''" \
-                and self.view.substr(sublime.Region(b - 2, b + 1)) == "'''":
-            quote_a = "u'''"
-            quote_b = "'''"
-        elif self.view.score_selector(a, "string.quoted.double.block.unicode.python") \
-                and self.view.substr(sublime.Region(a, a + 4)) == 'u"""' \
-                and self.view.substr(sublime.Region(b - 2, b + 1)) == '"""':
-            a += 1
-            quote_a = quote_b = '"""'
-        elif self.view.score_selector(a, 'string.quoted.single.single-line.raw-regex.python') \
-                and self.view.substr(sublime.Region(a, a + 2)) == "r'" \
-                and self.view.substr(sublime.Region(b, b + 1)) == "'":
-            a += 1
-            quote_a = quote_b = "'"
-        elif self.view.score_selector(a, "string.quoted.double.single-line.raw-regex.python") \
-                and self.view.substr(sublime.Region(a, a + 2)) == 'r"' \
-                and self.view.substr(sublime.Region(b, b + 1)) == '"':
-            a += 1
-            quote_a = quote_b = '"'
-        elif self.view.score_selector(a, 'string.quoted.single.block.raw-regex.python') \
-                and self.view.substr(sublime.Region(a, a + 4)) == "r'''" \
-                and self.view.substr(sublime.Region(b - 2, b + 1)) == "'''":
-            a += 1
-            quote_a = quote_b = "'''"
-        elif self.view.score_selector(a, "string.quoted.double.block.raw-regex.python") \
-                and self.view.substr(sublime.Region(a, a + 4)) == 'r"""' \
-                and self.view.substr(sublime.Region(b - 2, b + 1)) == '"""':
-            a += 1
             quote_a = quote_b = '"""'
         else:
             quote_a = self.view.substr(a)
