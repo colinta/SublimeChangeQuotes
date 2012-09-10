@@ -115,10 +115,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         replacement_b = CHANGE_QUOTE[quote_b]
 
         escape = None
+        unescape = None
         if quote_a == "'":
             escape = '"'
+            unescape = "'"
         elif quote_a == '"':
             escape = "'"
+            unescape = '"'
 
         self.view.sel().subtract(region)
         self.view.replace(edit, sublime.Region(a, a + len(replacement_a)), replacement_a)
@@ -136,6 +139,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                     new_inside += '\\'
                 elif c == escape and not is_escaped:
                     new_inside += '\\' + escape
+                elif c == unescape and is_escaped:
+                    new_inside = new_inside[:-1]
+                    new_inside += unescape
                 else:
                     is_escaped = False
                     new_inside += c
