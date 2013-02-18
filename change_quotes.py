@@ -41,7 +41,6 @@ CHANGE_QUOTE = {
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def run(self, edit, **kwargs):
-        e = self.view.begin_edit('change_quotes')
         regions = [region for region in self.view.sel()]
 
         # any edits that are performed will happen in reverse; this makes it
@@ -54,12 +53,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             try:
                 error = self.run_each(edit, region, **kwargs)
             except Exception as exception:
-                print repr(exception)
+                print(repr(exception))
                 error = exception.message
 
             if error:
                 sublime.status_message(error)
-        self.view.end_edit(e)
 
     def run_each(self, edit, region):
         a = region.begin()
