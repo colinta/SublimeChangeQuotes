@@ -45,9 +45,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         # any edits that are performed will happen in reverse; this makes it
         # easy to keep region.a and region.b pointing to the correct locations
-        def compare(region_a, region_b):
-            return cmp(region_b.end(), region_a.end())
-        regions.sort(compare)
+        def getEnd(region):
+            return region.end
+        regions.sort(key=getEnd)
 
         for region in regions:
             try:
