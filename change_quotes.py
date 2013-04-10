@@ -1,4 +1,6 @@
 # coding: utf8
+from functools import cmp_to_key
+
 import sublime
 import sublime_plugin
 
@@ -53,7 +55,6 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             try:
                 error = self.run_each(edit, region, **kwargs)
             except Exception as exception:
-                print(repr(exception))
                 error = exception.message
 
             if error:
