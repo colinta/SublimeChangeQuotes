@@ -6,7 +6,7 @@
   "labels": ["text manipulation"],
   "releases": [
     {
-      "details": "https://github.com/colinta/SublimeChangeQuotes/tree/master",
+      "details": "https://github.com/colinta/SublimeChangeQuotes/tree/st2",
       "sublime_text": "<3000"
     },
     {
