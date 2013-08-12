@@ -1,4 +1,6 @@
 # coding: utf8
+from functools import cmp_to_key
+
 import sublime
 import sublime_plugin
 
@@ -41,19 +43,10 @@ CHANGE_QUOTE = {
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def run(self, edit, **kwargs):
-        regions = [region for region in self.view.sel()]
-
-        # any edits that are performed will happen in reverse; this makes it
-        # easy to keep region.a and region.b pointing to the correct locations
-        def get_end(region):
-            return region.end()
-        regions.sort(key=get_end, reverse=True)
-
-        for region in regions:
+        for region in self.view.sel():
             try:
                 error = self.run_each(edit, region, **kwargs)
             except Exception as exception:
-                print(repr(exception))
                 error = exception.message
 
             if error:
