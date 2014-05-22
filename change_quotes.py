@@ -55,6 +55,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def run_each(self, edit, region):
         a = region.begin()
         b = region.end()
+
+        # handles changing quotes inside comments or other places that aren't
+        # considered a "string"
         if not (self.view.score_selector(a, 'string') and self.view.score_selector(b, 'string')):
             return self.run_each_find_quotes(edit, region)
 
@@ -97,6 +100,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             quote_a = self.view.substr(a)
             quote_b = self.view.substr(b)
 
+        # move the 'b' marker to inside the quotes
         b -= len(quote_b) - 1
 
         if quote_b != MATCH_QUOTE[quote_a]:
