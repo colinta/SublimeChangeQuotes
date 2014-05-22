@@ -58,12 +58,12 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         if not (self.view.score_selector(a, 'string') and self.view.score_selector(b, 'string')):
             return self.run_each_find_quotes(edit, region)
 
-        while self.view.score_selector(a - 1, 'string'):
+        while self.view.score_selector(a - 1, 'string') or self.view.score_selector(a - 1, 'meta.string'):
             a -= 1
             if a == 0:
                 break
 
-        while self.view.score_selector(b + 1, 'string'):
+        while self.view.score_selector(b + 1, 'string') or self.view.score_selector(b + 1, 'meta.string'):
             b += 1
             if b == self.view.size():
                 b -= 1
