@@ -25,6 +25,11 @@ Or:
 
        git clone -b st2 git@github.com:colinta/SublimeChangeQuotes
 
+How to use
+----------
+
+Put your cursor inside the text that is in quotes and then execute the command to replace the quotes. No selection needed.
+
 Commands
 --------
 
