@@ -135,6 +135,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 elif c == escape and not is_escaped:
                     new_inside += '\\' + escape
                 elif c == unescape and is_escaped:
+                    is_escaped = False
                     new_inside = new_inside[:-1]
                     new_inside += unescape
                 else:
