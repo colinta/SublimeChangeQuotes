@@ -88,11 +88,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 and self.view.substr(sublime.Region(a, a + 1)) in 'ur':
             a += 1
             quote_a = quote_b = '"""'
-        elif self.view.score_selector(a, 'python,string.quoted.single.block') \
+        elif self.view.score_selector(a, 'string.quoted.single.block') \
                 and self.view.substr(sublime.Region(a, a + 3)) == "'''" \
                 and self.view.substr(sublime.Region(b - 2, b + 1)) == "'''":
             quote_a = quote_b = "'''"
-        elif self.view.score_selector(a, "python,string.quoted.double.block") \
+        elif self.view.score_selector(a, "string.quoted.double.block") \
                 and self.view.substr(sublime.Region(a, a + 3)) == '"""' \
                 and self.view.substr(sublime.Region(b - 2, b + 1)) == '"""':
             quote_a = quote_b = '"""'
