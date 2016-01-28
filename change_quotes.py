@@ -119,8 +119,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             unescape = '"'
 
         self.view.sel().subtract(region)
-        self.view.replace(edit, sublime.Region(a, a + len(quote_a)), replacement_a)
         self.view.replace(edit, sublime.Region(b, b + len(quote_b)), replacement_b)
+        self.view.replace(edit, sublime.Region(a, a + len(quote_a)), replacement_a)
 
         if escape:
             # escape "escape" with "\escape"
