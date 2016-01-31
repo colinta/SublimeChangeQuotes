@@ -129,7 +129,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         if escape or unescape:
             # escape "escape" with "\escape"
-            inside_region = sublime.Region(a + len(quote_a), b)
+            inside_region = sublime.Region(a + len(replacement_a), b)
             inside = self.view.substr(inside_region)
             is_escaped = False
             new_inside = ''
