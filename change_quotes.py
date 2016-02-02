@@ -3,6 +3,7 @@ from functools import cmp_to_key
 
 import sublime
 import sublime_plugin
+import re
 
 
 MATCH_QUOTE = {
@@ -18,6 +19,7 @@ MATCH_QUOTE = {
     u'“': u'”',
     u'‹': u'›',
     u'«': u'»',
+    '\\': '',
 }
 
 
@@ -38,6 +40,8 @@ CHANGE_QUOTE = {
     u'›': u'»',
     u'«': u'‹',
     u'»': u'›',
+    '\\': "'",
+    '': "'",
 }
 
 
@@ -94,6 +98,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         elif self.view.substr(sublime.Region(a, a + 3)) == '"""' \
              and self.view.substr(sublime.Region(b - 2, b + 1)) == '"""':
             quote_a = quote_b = '"""'
+        elif self.view.substr(a) == '\\':
+            quote_a = '\\'
+            quote_b = ''
         else:
             quote_a = self.view.substr(a)
             quote_b = self.view.substr(b)
@@ -104,41 +111,38 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         if quote_b != MATCH_QUOTE[quote_a]:
             return "Quote characters ({0}, {1}) do not match".format(quote_a, quote_b)
 
-        replacement_a = CHANGE_QUOTE[quote_a]
-        replacement_b = CHANGE_QUOTE[quote_b]
+        if 'source.livescript' in self.view.scope_name(a).lower() \
+                and quote_a == '"' \
+                and not re.search(r'[\s,;)}\]]', self.view.substr(sublime.Region(a, b))):
+            replacement_a = '\\'
+            replacement_b = ''
+        else:
+            replacement_a = CHANGE_QUOTE[quote_a]
+            replacement_b = CHANGE_QUOTE[quote_b]
 
-        escape = None
-        unescape = None
-        if quote_a == "'":
-            escape = '"'
-            unescape = "'"
-        elif quote_a == '"':
-            escape = "'"
-            unescape = '"'
+        escape   = replacement_a if replacement_a in ("'", '"') else None
+        unescape = quote_a       if quote_a       in ("'", '"') else None
 
         self.view.sel().subtract(region)
         self.view.replace(edit, sublime.Region(b, b + len(quote_b)), replacement_b)
         self.view.replace(edit, sublime.Region(a, a + len(quote_a)), replacement_a)
 
-        if escape:
+        if escape or unescape:
             # escape "escape" with "\escape"
-            inside_region = sublime.Region(a + 1, b)
+            inside_region = sublime.Region(a + len(replacement_a), b)
             inside = self.view.substr(inside_region)
             is_escaped = False
             new_inside = ''
             for c in inside:
-                if c == '\\':
-                    is_escaped = not is_escaped
+                if c == escape and not is_escaped:
                     new_inside += '\\'
-                elif c == escape and not is_escaped:
-                    new_inside += '\\' + escape
                 elif c == unescape and is_escaped:
-                    is_escaped = False
                     new_inside = new_inside[:-1]
-                    new_inside += unescape
-                else:
-                    is_escaped = False
-                    new_inside += c
+                is_escaped = not is_escaped if c == '\\' else False
+                new_inside += c
+            # \foo\ is a legal string in LiveScript and should cycle to 'foo\\'
+            if quote_a == '\\' and is_escaped:
+                new_inside += '\\'
             self.view.replace(edit, inside_region, new_inside)
 
         self.view.sel().add(region)
