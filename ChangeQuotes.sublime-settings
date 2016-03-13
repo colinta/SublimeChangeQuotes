@@ -1,0 +1,16 @@
+{
+  "quote_lists": {
+    "default": {
+      "prefixes": [],
+      "quotes": [["'", "\""]],
+    },
+    "source.python": {
+      "prefixes": ["u", "r", "ur"],
+      "quotes": [["'", "\""], ["'''", "\"\"\""]]
+    },
+    "source.js": {
+      "prefixes": [],
+      "quotes": [["'", "\"", "`"]],
+    }
+  }
+}
