@@ -1,4 +1,5 @@
 # coding: utf8
+"""ChangeQuotes plugin module."""
 
 import sublime
 import sublime_plugin
@@ -13,7 +14,7 @@ config = None  # mute F821 errors from flake8
 
 
 def reorder_list_settings(list_settings):
-    """Reorder the quotes arrays and the prefixes list
+    """Reorder the quotes arrays and the prefixes list.
 
     The reordering of the quotes lists is as follows:
       - Each quote list's elements (quotes) are ordered by len(quote)
@@ -26,8 +27,8 @@ def reorder_list_settings(list_settings):
     (otherwise '''foo bar''' will get replaced by ''"foo bar"'')
 
     Returns the sorted settings.
-    """
 
+    """
     for scope, conf in list_settings.items():
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
@@ -52,6 +53,7 @@ def build_config(settings):
     (sublime's settings are note mutable)
 
     Returns a dict representing the sublime settings.
+
     """
     global config
 
@@ -61,31 +63,42 @@ def build_config(settings):
 
 
 def load_config():
+    """Load the plugin settings."""
     settings = sublime.load_settings("ChangeQuotes.sublime-settings")
     build_config(settings)
 
 
 def plugin_loaded():
+    """Invoke load_config() and attach a settings on_change hook.
+
+    Care must be taken to attach the hook just once, hence
+    plugin_loaded and load_config are separated.
+
+    """
     settings = sublime.load_settings("ChangeQuotes.sublime-settings")
     settings.add_on_change("lists", load_config)
     build_config(settings)
 
 
 def debug(msg):
+    """Print the given message if the `debug` setting is true."""
     if config["debug"]:
         print("[ChangeQuotes] %s" % str(msg))
 
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
+
+    """Main plugin class."""
+
     def run(self, edit, **kwargs):
+        """Main plugin function."""
         self.edit = edit
 
         for region in self.view.sel():
             self.run_each(edit, region, **kwargs)
 
     def run_each(self, edit, sel_region):
-        """Run the command for each selection region"""
-
+        """Run the command for each selection region."""
         cursor = sel_region.begin()
         self.apply_scope(cursor)
         region = self.expand_region(sel_region)
@@ -123,8 +136,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         Chosen values are stored in self.quotes and self.prefixes.
 
         No explicit return value.
-        """
 
+        """
         self.quote_lists = config["lists"]["default"]["quotes"]
         self.prefix_list = config["lists"]["default"]["prefixes"]
         best = 0
@@ -155,8 +168,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         sides of a string boundary), nothing is returned.
 
         Returned value is a sublime.Region object.
-        """
 
+        """
         # Cursor is always at 'b', use it as a ref
         ref = sel_region.b
 
@@ -190,8 +203,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """Expand `ref` to a region within the `scope` extents.
 
         Returned value is a sublime.Region object.
-        """
 
+        """
         a = b = ref
 
         while (self.view.score_selector(a - 1, scope) and a != 0):
@@ -213,13 +226,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         are compared and the one closest to `ref` boundary is returned.
 
         Escaped quotes are not considered a region boundary by checking if
-        an odd amount of backslashes precedes the quоte. It is not a perfect
+        an odd amount of backslashes precede the quote. It is not a perfect
         solution, but given the unknown semantics of the current region,
         it should suffice.
 
         Returned value is a sublime.Region object.
-        """
 
+        """
         scope = self.view.extract_scope(ref)
 
         # flatten -- http://stackoverflow.com/a/952952
@@ -293,8 +306,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """For each list in self.quote_lists, return a tuple (regex, list).
 
         Returned value is a list of (_sre.SRE_Pattern, quotes_list) tuples.
-        """
 
+        """
         regexes = [(self.build_regex(qlist), qlist) for qlist in self.quote_lists]
         debug("REGEXES: %s" % regexes)
 
@@ -306,8 +319,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         The regex has only one match group -- the matched quote.
 
         Returned value is a _sre.SRE_Pattern object.
-        """
 
+        """
         wrapped_quotes = ["(?:%s)" % (q) for q in quotes_list]
         joined_quotes = "|".join(wrapped_quotes)
 
@@ -335,8 +348,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         match result with the lowest match-index in `text`.
 
         The returned value is a (_sre.SRE_Match, quotes_list) tuple.
-        """
 
+        """
         matches = [(r[0].match(text), r[1]) for r in regex_tuples]
         debug("Text: %s" % text)
         debug("Matches: %s" % matches)
@@ -355,13 +368,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         return best
 
     def replacement(self, quote, quote_list):
-        """Find the replacement of `quote` amongst `quote_list`
+        """Find the replacement of `quote` amongst `quote_list`.
 
         The replacement is just the "next" quote in `quote_list`.
 
         Returned value is a string.
-        """
 
+        """
         cycle = itertools.cycle(quote_list)
 
         # Loop until the quote is found.
@@ -378,8 +391,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         Returned value is a dict:
         {"start": subime.Region, "end": sublime.Region, "inner": sublime.Region}
-        """
 
+        """
         # Offset -- all positions are relative to the region.
         #           By adding the offset, they become absolute for the document
         offset = region.begin()
@@ -403,15 +416,16 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         return {"start": start_region, "end": end_region, "inner": inner_region}
 
     def replace_quotes(self, region, replacement):
-        """Replace everything within `region` with `replacement`
+        """Replace everything within `region` with `replacement`.
 
         No explicit return value.
+
         """
         debug("REPLACE: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
     def escape_unescape(self, region, quote, replacement):
-        """In `region`, escape `replacement` and unescape `quote`
+        r"""In `region`, escape `replacement` and unescape `quote`.
 
         The escaped values are constructed from `replacement` by prepending
         each of its characters with a backslash. E.g:
@@ -430,8 +444,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         Ideally, (1) and (3) should match, but that is not possible.
 
         No explicit return value.
-        """
 
+        """
         debug("region: %s, quote: %s, replacement: %s" % (region, quote, replacement))
         inner_text = self.view.substr(region)
 
