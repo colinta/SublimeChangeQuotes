@@ -5,26 +5,33 @@ import sublime_plugin
 import re
 import itertools
 
+
 ST3 = int(sublime.version()) >= 3000
 
-# FIXME:
-# """ dfasfsaf """"
-#
-# is replaced by
-# ''' dfsafsaf "'''
-#
-# but should be replaced by
-# ''' dfsafsaf '''"
 
-global config
-config = sublime.load_settings('ChangeQuotes.sublime-settings').get('quote_lists')
+def read_settings():
+    """Build a dict from the sublime settings.
+
+    This is required since the original settings need to be reordered
+    before they are used, which can't happen directly
+    (sublime's settings are note mutable)
+
+    Returns a dict representing the sublime settings.
+    """
+
+    settings = sublime.load_settings("ChangeQuotes.sublime-settings")
+    conf = {}
+    conf["debug"] = settings.get("debug")
+    conf["lists"] = reorder_list_settings(settings.get("lists"))
+
+    return conf
+
 
 def plugin_loaded():
-    config = sublime.load_settings('ChangeQuotes.sublime-settings').get('quote_lists')
-    reorder_settings(config)
+    read_settings()
 
 
-def reorder_settings(settings):
+def reorder_list_settings(list_settings):
     """Reorder the quotes arrays and the prefixes list
 
     The reordering of the quotes lists is as follows:
@@ -36,9 +43,11 @@ def reorder_settings(settings):
 
     The order is important, because a that a ''' must take precedence over '
     (otherwise '''foo bar''' will get replaced by ''"foo bar"'')
+
+    Returns the sorted settings.
     """
 
-    for scope, conf in settings.items():
+    for scope, conf in list_settings.items():
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
 
@@ -47,12 +56,25 @@ def reorder_settings(settings):
             ql.sort(key=len, reverse=True)
 
         # In the master list, place the sub-list with the longest item first
+        debug("PRE-SORT: %s" % str(quote_lists))
         quote_lists.sort(key=lambda x: len(x[0]), reverse=True)
         prefixes.sort(key=len, reverse=True)
+        debug("POST-SORT: %s" % str(quote_lists))
 
-        # print(prefixes)
-        # print(quote_lists)
-        settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
+        debug(prefixes)
+        debug(quote_lists)
+        list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
+
+    return list_settings
+
+
+def debug(msg):
+    if config["debug"]:
+        print("[ChangeQuotes] %s" % str(msg))
+
+
+global config
+config = read_settings()
 
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
@@ -104,21 +126,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         No explicit return value.
         """
 
-        global config
-
-        # print("Config: %s" % str(config))
-        self.quote_lists = config["default"]["quotes"]
-        self.prefix_list = config["default"]["prefixes"]
+        self.quote_lists = config["lists"]["default"]["quotes"]
+        self.prefix_list = config["lists"]["default"]["prefixes"]
         best = 0
 
-        # print("Working with: %s" % config)
-        for scope, conf in config.items():
+        debug("Working with: %s" % config)
+        debug("Scope: %s" % self.view.scope_name(cursor))
+
+        for scope, conf in config["lists"].items():
             score = self.view.score_selector(cursor, scope)
             if score > best:
                 self.quote_lists = conf["quotes"]
                 self.prefix_list = conf["prefixes"]
 
-        # print("Quotes: %s, Prefixes: %s" % (self.quote_lists, self.prefix_list))
+        debug("Quotes: %s, Prefixes: %s" % (self.quote_lists, self.prefix_list))
 
     def expand_region(self, sel_region):
         """Expand working region to the quote extents.
@@ -140,20 +161,28 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         # Cursor is always at 'b', use it as a ref
         ref = sel_region.b
 
-        if self.view.score_selector(ref, 'string,meta.string'):
-            region = self.expand_to_scope(ref, 'string,meta.string')
+        if self.view.score_selector(ref, "string,meta.string"):
+            scopes = self.view.scope_name(ref).split()
+            debug("Scopes: %s" % str(scopes))
+
+            regex = re.compile(r"^(?:meta.)?string")
+            scope = next(x for x in scopes if regex.match(x))
+
+            debug("Chosen scope: %s" % scope)
+
+            region = self.expand_to_scope(ref, scope)
         else:
             region = self.expand_to_match(ref)
 
         if not region:
-            # print("No region found.")
+            debug("No region found.")
             return
 
-        # print("Operation region: %s" % region)
+        debug("Operation region: %s" % region)
 
         # It is unclear what is expected in this case
         if not region.contains(sel_region):
-            # print("Selection region exceeds operation region, doing nothing")
+            debug("Selection region exceeds operation region, doing nothing")
             return
 
         return region
@@ -166,12 +195,10 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         a = b = ref
 
-        while (self.view.score_selector(a - 1, scope) and
-                a != 0):
+        while (self.view.score_selector(a - 1, scope) and a != 0):
             a -= 1
 
-        while (self.view.score_selector(b, scope) and
-                b != self.view.size()):
+        while (self.view.score_selector(b, scope) and b != self.view.size()):
             b += 1
 
         region = sublime.Region(a, b)
@@ -220,13 +247,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         #
         for q in all_quotes:
             # http://stackoverflow.com/a/11819111
-            regex_right = re.compile(r'(?<!\\)(?:\\\\)*(%s)' % q)
+            regex_right = re.compile(r"(?<!\\)(?:\\\\)*(%s)" % q)
 
             # left is reversed => escape symbol is *after* the quote
-            regex_left = re.compile(r'(%s)(?:\\\\)*(?!\\)' % q)
+            regex_left = re.compile(r"(%s)(?:\\\\)*(?!\\)" % q)
 
-            # print("[left] Trying %s with %s" % (q, regex_left.pattern))
-            # print("[right] Trying %s with %s" % (q, regex_right.pattern))
+            debug("[left] Trying %s with %s" % (q, regex_left.pattern))
+            debug("[right] Trying %s with %s" % (q, regex_right.pattern))
 
             match_left = regex_left.search(substr_left[::-1])
             match_right = regex_right.search(substr_right)
@@ -236,7 +263,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 matches.append(elem)
 
         if not matches:
-            # print("No matches")
+            debug("No matches")
             return
 
         # Find the tuple with the least match distance
@@ -249,12 +276,12 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             best_left = best[1][0].start(1)
             best_right = best[1][1].start(1)
 
-            # print("Match: %s (at (%s, %s))" % (m[0], m_left, m_right))
-            # print("Against: %s (at (%s, %s))" % (best[0], best_left, best_right))
+            debug("Match: %s (at (%s, %s))" % (m[0], m_left, m_right))
+            debug("Against: %s (at (%s, %s))" % (best[0], best_left, best_right))
             if min(m_left, m_right) < min(best_left, best_right):
                 best = m
 
-        # print("Best match: %s" % best[0])
+        debug("Best match: %s" % best[0])
 
         a = ref - (best[1][0].end(1))
         b = ref + (best[1][1].end(1))
@@ -270,7 +297,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
 
         regexes = [(self.build_regex(qlist), qlist) for qlist in self.quote_lists]
-        # print("REGEXES: %s" % regexes)
+        debug("REGEXES: %s" % regexes)
 
         return regexes
 
@@ -282,20 +309,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         Returned value is a _sre.SRE_Pattern object.
         """
 
-        wrapped_quotes = ['(?:%s)' % (q) for q in quotes_list]
-        joined_quotes = '|'.join(wrapped_quotes)
+        wrapped_quotes = ["(?:%s)" % (q) for q in quotes_list]
+        joined_quotes = "|".join(wrapped_quotes)
 
-        wrapped_prefixes = ['(?:%s)' % (p) for p in self.prefix_list]
-        joined_prefixes = '|'.join(wrapped_prefixes)
+        wrapped_prefixes = ["(?:%s)" % (p) for p in self.prefix_list]
+        joined_prefixes = "|".join(wrapped_prefixes)
 
-        pattern = '(%s)' % (joined_quotes)
+        pattern = "(%s)" % (joined_quotes)
 
         if self.prefix_list:
-            pattern = '^(?:%s)?(%s)' % (joined_prefixes, joined_quotes)
+            pattern = "^(?:%s)?(%s)" % (joined_prefixes, joined_quotes)
         else:
-            pattern = '^(%s)' % (joined_quotes)
+            pattern = "^(%s)" % (joined_quotes)
 
-        # print("Pattern: %s" % pattern)
+        debug("Pattern: %s" % pattern)
         regex = re.compile(pattern)
 
         return regex
@@ -312,19 +339,19 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
 
         matches = [(r[0].match(text), r[1]) for r in regex_tuples]
-        # print("Text: %s" % text)
-        # print("Matches: %s" % matches)
+        debug("Text: %s" % text)
+        debug("Matches: %s" % matches)
         matches = [m for m in matches if m[0] is not None]
 
         if not matches:
-            # print("No matches.")
+            debug("No matches.")
             return (None, None)
 
         starts = [m[0].start(1) for m in matches]
 
         best_index = starts.index(min(starts))
         best = matches[best_index]
-        # print("Best match: %s" % str(best))
+        debug("Best match: %s" % str(best))
 
         return best
 
@@ -370,9 +397,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         # Inner region
         inner_region = sublime.Region(start_region.end(), end_region.begin())
 
-        # print(start_region)
-        # print(end_region)
-        # print(inner_region)
+        debug("Start region: %s" % start_region)
+        debug("Start region: %s" % end_region)
+        debug("Start region: %s" % inner_region)
 
         return {"start": start_region, "end": end_region, "inner": inner_region}
 
@@ -381,7 +408,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         No explicit return value.
         """
-        print("REPLACE: %s with %s" % (self.view.substr(region), replacement))
+        debug("REPLACE: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
     def escape_unescape(self, region, quote, replacement):
@@ -406,20 +433,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         No explicit return value.
         """
 
-        # print("region: %s, quote: %s, replacement: %s" % (region, quote, replacement))
+        debug("region: %s, quote: %s, replacement: %s" % (region, quote, replacement))
         inner_text = self.view.substr(region)
 
         # ESCAPE already existing new quotes in the inner region
-        unescaped_substr = replacement
-        unescaped_replacement = re.sub(r'(.)', r'\\\g<1>', unescaped_substr)
-        # print("[escape] Replace %s with %s in %s" % (unescaped_substr, unescaped_replacement, inner_text))
-        inner_text = inner_text.replace(unescaped_substr, unescaped_replacement)
+        unescaped_quote = replacement
+        unescaped_replacement = re.sub(r"(.)", r"\\\g<1>", unescaped_quote)
+        debug("Escape: replace %s with %s in %s" % (unescaped_quote, unescaped_replacement, inner_text))
+        inner_text = inner_text.replace(unescaped_quote, unescaped_replacement)
 
         # UNESCAPE escaped old quotes in the inner reagion
-        escaped_substr = re.sub(r'(.)', r'\\\g<1>', quote)
+        escaped_quote = re.sub(r"(.)", r"\\\g<1>", quote)
         escaped_replacement = quote
-        # print("[unesc]  Replace %s with %s in %s" % (unescaped_substr, unescaped_replacement, inner_text))
-        inner_text = inner_text.replace(escaped_substr, escaped_replacement)
+        debug("Unesacpe: Replace %s with %s in %s" % (unescaped_quote, unescaped_replacement, inner_text))
+        inner_text = inner_text.replace(escaped_quote, escaped_replacement)
 
         self.view.replace(self.edit, region, inner_text)
 
