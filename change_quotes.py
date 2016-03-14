@@ -8,27 +8,8 @@ import itertools
 
 ST3 = int(sublime.version()) >= 3000
 
-
-def read_settings():
-    """Build a dict from the sublime settings.
-
-    This is required since the original settings need to be reordered
-    before they are used, which can't happen directly
-    (sublime's settings are note mutable)
-
-    Returns a dict representing the sublime settings.
-    """
-
-    settings = sublime.load_settings("ChangeQuotes.sublime-settings")
-    conf = {}
-    conf["debug"] = settings.get("debug")
-    conf["lists"] = reorder_list_settings(settings.get("lists"))
-
-    return conf
-
-
-def plugin_loaded():
-    read_settings()
+global config
+config = None  # mute F821 errors from flake8
 
 
 def reorder_list_settings(list_settings):
@@ -56,25 +37,43 @@ def reorder_list_settings(list_settings):
             ql.sort(key=len, reverse=True)
 
         # In the master list, place the sub-list with the longest item first
-        debug("PRE-SORT: %s" % str(quote_lists))
         quote_lists.sort(key=lambda x: len(x[0]), reverse=True)
         prefixes.sort(key=len, reverse=True)
-        debug("POST-SORT: %s" % str(quote_lists))
-
-        debug(prefixes)
-        debug(quote_lists)
         list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
 
     return list_settings
 
 
+def build_config(settings):
+    """Build a dict from the sublime settings.
+
+    This is required since the original settings need to be reordered
+    before they are used, which can't happen directly
+    (sublime's settings are note mutable)
+
+    Returns a dict representing the sublime settings.
+    """
+    global config
+
+    config = {}
+    config["debug"] = settings.get("debug")
+    config["lists"] = reorder_list_settings(settings.get("lists"))
+
+
+def load_config():
+    settings = sublime.load_settings("ChangeQuotes.sublime-settings")
+    build_config(settings)
+
+
+def plugin_loaded():
+    settings = sublime.load_settings("ChangeQuotes.sublime-settings")
+    settings.add_on_change("lists", load_config)
+    build_config(settings)
+
+
 def debug(msg):
     if config["debug"]:
         print("[ChangeQuotes] %s" % str(msg))
-
-
-global config
-config = read_settings()
 
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
