@@ -3,10 +3,41 @@
 import sublime
 import sublime_plugin
 import re
+import itertools
 
 ST3 = int(sublime.version()) >= 3000
 
-def normalize_settings(settings):
+# FIXME:
+# """ dfasfsaf """"
+#
+# is replaced by
+# ''' dfsafsaf "'''
+#
+# but should be replaced by
+# ''' dfsafsaf '''"
+
+global config
+config = sublime.load_settings('ChangeQuotes.sublime-settings').get('quote_lists')
+
+def plugin_loaded():
+    config = sublime.load_settings('ChangeQuotes.sublime-settings').get('quote_lists')
+    reorder_settings(config)
+
+
+def reorder_settings(settings):
+    """Reorder the quotes arrays and the prefixes list
+
+    The reordering of the quotes lists is as follows:
+      - Each quote list's elements (quotes) are ordered by len(quote)
+      - The quote lists's elements (quote_lists) are ordered len(quote_list[0])
+
+    The reordering of the prefix list is as follows:
+      - The prefix list's elements (chars) are ordered by len(char)
+
+    The order is important, because a that a ''' must take precedence over '
+    (otherwise '''foo bar''' will get replaced by ''"foo bar"'')
+    """
+
     for scope, conf in settings.items():
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
@@ -21,54 +52,91 @@ def normalize_settings(settings):
 
         # print(prefixes)
         # print(quote_lists)
-        settings[scope] = { "prefixes": prefixes, "quotes": quote_lists }
+        settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
 
-def plugin_loaded():
-    global config
-    config = sublime.load_settings('ChangeQuotes.sublime-settings').get('quote_lists')
-    normalize_settings(config)
 
 class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def run(self, edit, **kwargs):
         self.edit = edit
 
         for region in self.view.sel():
-            error = self.run_each(edit, region, **kwargs)
-
-    def apply_scope(self, cursor):
-        self.quotes = config["default"]["quotes"]
-        self.prefixes = config["default"]["prefixes"]
-        best = 0
-
-        print("Working with: %s" % config)
-        for scope, conf in config.items():
-            score = self.view.score_selector(cursor, scope)
-            if score > best:
-                self.quotes = conf["quotes"]
-                self.prefixes = conf["prefixes"]
-
-        # print("Quotes: %s, Prefixes: %s" % (self.quotes, self.prefixes))
+            self.run_each(edit, region, **kwargs)
 
     def run_each(self, edit, sel_region):
+        """Run the command for each selection region"""
+
         cursor = sel_region.begin()
         self.apply_scope(cursor)
         region = self.expand_region(sel_region)
-        if not region: return
-
+        if not region:
+            return
 
         text = self.view.substr(region)
-        regexes = self.build_regexes()
-        match_data, quotes = self.find_best_match(text, regexes)
-        if not match_data: return
+        regex_tuples = self.build_regex_tuples()
+        match_data, quote_list = self.find_best_match(text, regex_tuples)
+        if not match_data:
+            return
 
-        substr = match_data.group(1)
-        replacement = self.replacement(substr, quotes)
-        regions = self.build_regions(region, text, match_data, substr, replacement)
+        quote = match_data.group(1)
+        replacement = self.replacement(quote, quote_list)
+        regions = self.build_regions(region, text, match_data, quote, replacement)
 
-        self.replace_quotes(regions, substr, replacement)
-        self.escape_unescape(regions, substr, replacement)
+        # Altering the region lengths (e.g. replacing ' with ''') will cause
+        # their right boundary to move further to the right, which
+        # causes issues as the boundaries no longer match the pre-calculated
+        # values.
+        #
+        # To avoid the issue, it is important to start replacing from
+        # the rightmost region (`end`) to the leftmost region (`start`)
+        self.replace_quotes(regions["end"], replacement)
+        self.escape_unescape(regions["inner"], quote, replacement)
+        self.replace_quotes(regions["start"], replacement)
+
+    def apply_scope(self, cursor):
+        """Choose the best-matching quote and prefix lists.
+
+        Start by choosing the default lists.
+        Then, for syntax-specific lists, evaluate the syntax
+        match score and possibly choose those lists instead.
+
+        Chosen values are stored in self.quotes and self.prefixes.
+
+        No explicit return value.
+        """
+
+        global config
+
+        # print("Config: %s" % str(config))
+        self.quote_lists = config["default"]["quotes"]
+        self.prefix_list = config["default"]["prefixes"]
+        best = 0
+
+        # print("Working with: %s" % config)
+        for scope, conf in config.items():
+            score = self.view.score_selector(cursor, scope)
+            if score > best:
+                self.quote_lists = conf["quotes"]
+                self.prefix_list = conf["prefixes"]
+
+        # print("Quotes: %s, Prefixes: %s" % (self.quote_lists, self.prefix_list))
 
     def expand_region(self, sel_region):
+        """Expand working region to the quote extents.
+
+        Use the cursor position as a starting reference point.
+        (cursor is always at `sel_region.b`)
+
+        Two different approaches are used, based on the context:
+          1/ string context
+          2/ non-string context (e.g. comment)
+
+        Finally, if the expanded region does not entirely contain the
+        user selection region (e.g. the selection spans across both
+        sides of a string boundary), nothing is returned.
+
+        Returned value is a sublime.Region object.
+        """
+
         # Cursor is always at 'b', use it as a ref
         ref = sel_region.b
 
@@ -91,6 +159,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         return region
 
     def expand_to_scope(self, ref, scope):
+        """Expand `ref` to a region within the `scope` extents.
+
+        Returned value is a sublime.Region object.
+        """
+
         a = b = ref
 
         while (self.view.score_selector(a - 1, scope) and
@@ -106,8 +179,25 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         return region
 
     def expand_to_match(self, ref):
+        """Expand `ref` to the closest region, surrounded by quotes.
+
+        Expansion is done by searching for any of the chars in in each
+        quotes_list in self.quote_lists. Search is both left and right,
+        up to the current scope extents. Then, the constructed regions
+        are compared and the one closest to `ref` boundary is returned.
+
+        Escaped quotes are not considered a region boundary by checking if
+        an odd amount of backslashes precedes the quоte. It is not a perfect
+        solution, but given the unknown semantics of the current region,
+        it should suffice.
+
+        Returned value is a sublime.Region object.
+        """
+
         scope = self.view.extract_scope(ref)
-        flattened_quotes = [item for sublist in self.quotes for item in sublist]
+
+        # flatten -- http://stackoverflow.com/a/952952
+        all_quotes = [item for qlist in self.quote_lists for item in qlist]
 
         # Get strings to the left and to the right of cursor
         # (up to a the scope extent)
@@ -118,18 +208,17 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         region_right = sublime.Region(ref, scope.end())
         substr_right = self.view.substr(region_right)
 
-        # http://stackoverflow.com/a/11819111
         matches = []
 
-        # Return a list of tuples:
+        # For each quote, build a list of tuples:
         # [
         #   ('"', (3, 4)),
         #   ("'", (1, 8)),
         #   ...
         # ]
-        # The sub-tuple contains match positions (left, right)
+        # The sub-tuple contains match distances (left, right) from `ref`
         #
-        for q in flattened_quotes:
+        for q in all_quotes:
             # http://stackoverflow.com/a/11819111
             regex_right = re.compile(r'(?<!\\)(?:\\\\)*(%s)' % q)
 
@@ -150,24 +239,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             # print("No matches")
             return
 
-        # Find the tuple with the closest match position
+        # Find the tuple with the least match distance
         # (does not matter left or right)
-        best = None
+        best = matches[0]
 
-        for m in matches:
+        for m in matches[1:]:
             m_left = m[1][0].start(1)
             m_right = m[1][1].start(1)
+            best_left = best[1][0].start(1)
+            best_right = best[1][1].start(1)
 
             # print("Match: %s (at (%s, %s))" % (m[0], m_left, m_right))
-
-            if best is None:
+            # print("Against: %s (at (%s, %s))" % (best[0], best_left, best_right))
+            if min(m_left, m_right) < min(best_left, best_right):
                 best = m
-            else:
-                best_left = best[1][0].start(1)
-                best_right = best[1][1].start(1)
-                # print("Against: %s (at (%s, %s))" % (best[0], best_left, best_right))
-                if min(m_left, m_right) < min(best_left, best_right):
-                    best = m
 
         # print("Best match: %s" % best[0])
 
@@ -178,22 +263,34 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         return region
 
-    def build_regexes(self):
-        regexes = [(self.build_regex(q), q) for q in self.quotes]
+    def build_regex_tuples(self):
+        """For each list in self.quote_lists, return a tuple (regex, list).
+
+        Returned value is a list of (_sre.SRE_Pattern, quotes_list) tuples.
+        """
+
+        regexes = [(self.build_regex(qlist), qlist) for qlist in self.quote_lists]
         # print("REGEXES: %s" % regexes)
 
         return regexes
 
-    def build_regex(self, quotes):
-        wrapped_quotes = ['(?:%s)' % (q) for q in quotes]
+    def build_regex(self, quotes_list):
+        """Build a regex matching any quote in `quotes_list`.
+
+        The regex has only one match group -- the matched quote.
+
+        Returned value is a _sre.SRE_Pattern object.
+        """
+
+        wrapped_quotes = ['(?:%s)' % (q) for q in quotes_list]
         joined_quotes = '|'.join(wrapped_quotes)
 
-        wrapped_prefixes = ['(?:%s)' % (p) for p in self.prefixes]
+        wrapped_prefixes = ['(?:%s)' % (p) for p in self.prefix_list]
         joined_prefixes = '|'.join(wrapped_prefixes)
 
         pattern = '(%s)' % (joined_quotes)
 
-        if self.prefixes:
+        if self.prefix_list:
             pattern = '^(?:%s)?(%s)' % (joined_prefixes, joined_quotes)
         else:
             pattern = '^(%s)' % (joined_quotes)
@@ -203,8 +300,18 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         return regex
 
-    def find_best_match(self, text, regexes):
-        matches = [(r[0].match(text), r[1]) for r in regexes]
+    def find_best_match(self, text, regex_tuples):
+        """Find the best match in `text` amongst the `regex_tuples` list.
+
+        `regex_tuples` is a list of (_sre.SRE_Pattern, quotes_list) tuples.
+
+        The "best match" is actually the "closest match" -- i.e. the
+        match result with the lowest match-index in `text`.
+
+        The returned value is a (_sre.SRE_Match, quotes_list) tuple.
+        """
+
+        matches = [(r[0].match(text), r[1]) for r in regex_tuples]
         # print("Text: %s" % text)
         # print("Matches: %s" % matches)
         matches = [m for m in matches if m[0] is not None]
@@ -221,32 +328,47 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         return best
 
+    def replacement(self, quote, quote_list):
+        """Find the replacement of `quote` amongst `quote_list`
 
-    def replacement(self, substr, quotes):
-        ind = quotes.index(substr)
-        if len(quotes) == ind + 1:
-          replacement = quotes[0]
-        else:
-          replacement = quotes[ind + 1]
+        The replacement is just the "next" quote in `quote_list`.
 
-        return replacement
+        Returned value is a string.
+        """
 
-    def build_regions(self, region, text, match_data, substr, replacement):
-        # Offset -- as we operate with the substring, all positions
-        #           are relative -- by adding the offset, they become
-        #           absolute for the document.
+        cycle = itertools.cycle(quote_list)
+
+        # Loop until the quote is found.
+        # The quote after it is the replacement
+        while quote != next(cycle): continue
+        return next(cycle)
+
+    def build_regions(self, region, text, match_data, quote, replacement):
+        """Divide `region` into 3 sub-regions: start, end and inner.
+
+        The start region contains only the quote chars at the left border
+        The end region contains only the quote chars at the right border
+        The inner region contains the text inbetween.
+
+        Returned value is a dict:
+        {"start": subime.Region, "end": sublime.Region, "inner": sublime.Region}
+        """
+
+        # Offset -- all positions are relative to the region.
+        #           By adding the offset, they become absolute for the document
         offset = region.begin()
 
-        start, end = match_data.span(1)
-        start_region = sublime.Region(start + offset, end + offset)
+        # Start region
+        start_left, start_right = match_data.span(1)
+        start_region = sublime.Region(start_left + offset, start_right + offset)
 
-        # One more time offset -- if start_region is replaced by a longer string
-        replacement_offset = len(replacement) - len(substr)
-        offset += replacement_offset
-        end_start = text.rfind(substr)
-        end_region = sublime.Region(end_start + offset, end_start + len(substr) + offset)
+        # End region
+        end_left = text.rfind(quote)
+        end_right = end_left + len(quote)
+        end_region = sublime.Region(end_left + offset, end_right + offset)
 
-        inner_region = sublime.Region(start_region.end() + replacement_offset, end_region.begin())
+        # Inner region
+        inner_region = sublime.Region(start_region.end(), end_region.begin())
 
         # print(start_region)
         # print(end_region)
@@ -254,15 +376,38 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         return {"start": start_region, "end": end_region, "inner": inner_region}
 
-    def replace_quotes(self, regions, substr, replacement):
-        # print("Replacing %s with %s within regions %s and %s of <the text>" % (substr, replacement, regions["start"], regions["end"]))
-        # print("Start region contents: %s" % self.view.substr(regions["start"]))
-        self.view.replace(self.edit, regions["start"], replacement)
-        # print("End region contents: %s" % self.view.substr(regions["end"]))
-        self.view.replace(self.edit, regions["end"], replacement)
+    def replace_quotes(self, region, replacement):
+        """Replace everything within `region` with `replacement`
 
-    def escape_unescape(self, regions, substr, replacement):
-        inner_text = self.view.substr(regions["inner"])
+        No explicit return value.
+        """
+        print("REPLACE: %s with %s" % (self.view.substr(region), replacement))
+        self.view.replace(self.edit, region, replacement)
+
+    def escape_unescape(self, region, quote, replacement):
+        """In `region`, escape `replacement` and unescape `quote`
+
+        The escaped values are constructed from `replacement` by prepending
+        each of its characters with a backslash. E.g:
+        ' becomes \'
+        ''' becomes \'\'\'
+
+        The opposite logic is applied when "unescaping" `quote`.
+
+        Already escaped replacements are not escaped twice.
+        This means that in a subsequent invocation, the plugin is unable to
+        distinguish them from the others:
+        (1) 'foo "bar" \"baz\"'   =>
+        (2) "foo \"bar\" \"baz\"" =>
+        (3) 'foo "bar" "baz"'
+
+        Ideally, (1) and (3) should match, but that is not possible.
+
+        No explicit return value.
+        """
+
+        # print("region: %s, quote: %s, replacement: %s" % (region, quote, replacement))
+        inner_text = self.view.substr(region)
 
         # ESCAPE already existing new quotes in the inner region
         unescaped_substr = replacement
@@ -271,12 +416,12 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         inner_text = inner_text.replace(unescaped_substr, unescaped_replacement)
 
         # UNESCAPE escaped old quotes in the inner reagion
-        escaped_substr = re.sub(r'(.)', r'\\\g<1>', substr)
-        escaped_replacement = substr
+        escaped_substr = re.sub(r'(.)', r'\\\g<1>', quote)
+        escaped_replacement = quote
         # print("[unesc]  Replace %s with %s in %s" % (unescaped_substr, unescaped_replacement, inner_text))
         inner_text = inner_text.replace(escaped_substr, escaped_replacement)
 
-        self.view.replace(self.edit, regions["inner"], inner_text)
+        self.view.replace(self.edit, region, inner_text)
 
 
 if not ST3:
