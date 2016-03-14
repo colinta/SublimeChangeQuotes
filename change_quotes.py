@@ -113,7 +113,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         quote = match_data.group(1)
         replacement = self.replacement(quote, quote_list)
-        regions = self.build_regions(region, text, match_data, quote, replacement)
+        regions = self.build_regions(
+            region,
+            text,
+            match_data,
+            quote,
+            replacement
+        )
 
         # Altering the region lengths (e.g. replacing ' with ''') will cause
         # their right boundary to move further to the right, which
@@ -151,7 +157,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 self.quote_lists = conf["quotes"]
                 self.prefix_list = conf["prefixes"]
 
-        debug("Quotes: %s, Prefixes: %s" % (self.quote_lists, self.prefix_list))
+        debug("Quotes: %s, Prefixes: %s" % (self.quote_lists,
+                                            self.prefix_list))
 
     def expand_region(self, sel_region):
         """Expand working region to the quote extents.
@@ -288,8 +295,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             best_left = best[1][0].start(1)
             best_right = best[1][1].start(1)
 
-            debug("Match: %s (at (%s, %s))" % (m[0], m_left, m_right))
-            debug("Against: %s (at (%s, %s))" % (best[0], best_left, best_right))
+            debug("Match: %s at (%s, %s)" % (m[0], m_left, m_right))
+            debug("Against: %s at (%s, %s)" % (best[0], best_left, best_right))
             if min(m_left, m_right) < min(best_left, best_right):
                 best = m
 
@@ -308,7 +315,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         Returned value is a list of (_sre.SRE_Pattern, quotes_list) tuples.
 
         """
-        regexes = [(self.build_regex(qlist), qlist) for qlist in self.quote_lists]
+        regexes = [(self.build_regex(ql), ql) for ql in self.quote_lists]
         debug("REGEXES: %s" % regexes)
 
         return regexes
@@ -379,7 +386,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         # Loop until the quote is found.
         # The quote after it is the replacement
-        while quote != next(cycle): continue
+        while quote != next(cycle):
+            continue
+
         return next(cycle)
 
     def build_regions(self, region, text, match_data, quote, replacement):
@@ -390,7 +399,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         The inner region contains the text inbetween.
 
         Returned value is a dict:
-        {"start": subime.Region, "end": sublime.Region, "inner": sublime.Region}
+        {
+            "start": subime.Region,
+            "end": sublime.Region,
+            "inner": sublime.Region
+        }
 
         """
         # Offset -- all positions are relative to the region.
@@ -398,30 +411,34 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         offset = region.begin()
 
         # Start region
-        start_left, start_right = match_data.span(1)
-        start_region = sublime.Region(start_left + offset, start_right + offset)
+        start_l, start_r = match_data.span(1)
+        start_region = sublime.Region(start_l + offset, start_r + offset)
 
         # End region
-        end_left = text.rfind(quote)
-        end_right = end_left + len(quote)
-        end_region = sublime.Region(end_left + offset, end_right + offset)
+        end_l = text.rfind(quote)
+        end_r = end_l + len(quote)
+        end_region = sublime.Region(end_l + offset, end_r + offset)
 
         # Inner region
         inner_region = sublime.Region(start_region.end(), end_region.begin())
 
         debug("Start region: %s" % start_region)
-        debug("Start region: %s" % end_region)
-        debug("Start region: %s" % inner_region)
+        debug("End region: %s" % end_region)
+        debug("Inner region: %s" % inner_region)
 
-        return {"start": start_region, "end": end_region, "inner": inner_region}
+        return {
+            "start": start_region,
+            "end": end_region,
+            "inner": inner_region
+        }
 
     def replace_quotes(self, region, replacement):
-        """Replace everything within `region` with `replacement`.
+        """Replace the contents of a `region` with `replacement`.
 
         No explicit return value.
 
         """
-        debug("REPLACE: %s with %s" % (self.view.substr(region), replacement))
+        debug("Replace: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
     def escape_unescape(self, region, quote, replacement):
@@ -446,20 +463,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         No explicit return value.
 
         """
-        debug("region: %s, quote: %s, replacement: %s" % (region, quote, replacement))
+        debug("Replace %s with %s in %s" % (quote, replacement, region))
         inner_text = self.view.substr(region)
 
         # ESCAPE already existing new quotes in the inner region
-        unescaped_quote = replacement
-        unescaped_replacement = re.sub(r"(.)", r"\\\g<1>", unescaped_quote)
-        debug("Escape: replace %s with %s in %s" % (unescaped_quote, unescaped_replacement, inner_text))
-        inner_text = inner_text.replace(unescaped_quote, unescaped_replacement)
+        unesc_quote = replacement
+        unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
+        debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
+        inner_text = inner_text.replace(unesc_quote, unesc_replacement)
 
         # UNESCAPE escaped old quotes in the inner reagion
-        escaped_quote = re.sub(r"(.)", r"\\\g<1>", quote)
-        escaped_replacement = quote
-        debug("Unesacpe: Replace %s with %s in %s" % (unescaped_quote, unescaped_replacement, inner_text))
-        inner_text = inner_text.replace(escaped_quote, escaped_replacement)
+        esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
+        esc_replacement = quote
+        debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
+        inner_text = inner_text.replace(esc_quote, esc_replacement)
 
         self.view.replace(self.edit, region, inner_text)
 
