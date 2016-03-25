@@ -6,7 +6,6 @@ import sublime_plugin
 import re
 import itertools
 
-
 ST3 = int(sublime.version()) >= 3000
 
 global config
@@ -33,7 +32,7 @@ def reorder_list_settings(list_settings):
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
 
-        # In the sub-lists, place the longest item furst
+        # In the sub-lists, place the longest item first
         for ql in quote_lists:
             ql.sort(key=len, reverse=True)
 
@@ -229,10 +228,10 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         return region
 
     def expand_to_match(self, ref):
-        """Expand `ref` to the closest region, surrounded by quotes.
+        """Expand `ref` to the innermost region, surrounded by quotes.
 
-        Expansion is done by searching for any of the chars in in each
-        quotes_list in self.quote_lists. Search is both left and right,
+        Expansion is done by searching for any of the chars in each
+        list in self.quote_lists. Search is both to the left and right,
         up to the current scope extents. Then, the constructed regions
         are compared and the one closest to `ref` boundary is returned.
 
