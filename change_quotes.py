@@ -121,6 +121,10 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             replacement
         )
 
+        # Edge case in which there is no closing quote
+        if regions["start"].contains(regions["end"]):
+            return
+
         # Altering the region lengths (e.g. replacing ' with ''') will cause
         # their right boundary to move further to the right, which
         # causes issues as the boundaries no longer match the pre-calculated
