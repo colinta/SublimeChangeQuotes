@@ -1,17 +1,18 @@
 {
-  "debug": true,
+  "debug": false,
   "lists": {
     "default": {
-      "prefixes": [],
-      "quotes": [["'", "\""]],
+      "quotes": [["'", "\""]]
     },
     "source.python": {
-      "prefixes": ["u", "r", "ur"],
+      "prefixes": [
+        "r", "u", "ur", "R", "U", "UR", "Ur", "uR",
+        "b", "B", "br", "Br", "bR", "BR"
+      ],
       "quotes": [["'", "\""], ["'''", "\"\"\""]]
     },
     "source.js": {
-      "prefixes": [],
-      "quotes": [["'", "\"", "`"]],
+      "quotes": [["'", "\"", "`"]]
     }
   }
 }
