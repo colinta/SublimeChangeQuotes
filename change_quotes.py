@@ -13,16 +13,16 @@ config = None  # mute F821 errors from flake8
 
 
 def reorder_list_settings(list_settings):
-    """Reorder the quotes arrays and the prefixes list.
+    """Reorder the quotes lists and the prefixes list.
 
     The reordering of the quotes lists is as follows:
       - Each quote list's elements (quotes) are ordered by len(quote)
       - The quote lists's elements (quote_lists) are ordered len(quote_list[0])
 
     The reordering of the prefix list is as follows:
-      - The prefix list's elements (chars) are ordered by len(char)
+      - The prefix list's elements (prefixes) are ordered by len(prefix)
 
-    The order is important, because a that a ''' must take precedence over '
+    The order is important, because a ''' must take precedence over '
     (otherwise '''foo bar''' will get replaced by ''"foo bar"'')
 
     Returns the sorted settings.
@@ -49,9 +49,9 @@ def build_config(settings):
 
     This is required since the original settings need to be reordered
     before they are used, which can't happen directly
-    (sublime's settings are note mutable)
+    (sublime's settings are immutable)
 
-    Returns a dict representing the sublime settings.
+    Returns a dict representing the reordered settings.
 
     """
     global config
@@ -138,9 +138,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def apply_scope(self, cursor):
         """Choose the best-matching quote and prefix lists.
 
-        Start by choosing the default lists.
+        Start by choosing the default ones.
         Then, for syntax-specific lists, evaluate the syntax
-        match score and possibly choose those lists instead.
+        match score and possibly choose them instead.
 
         Chosen values are stored in self.quotes and self.prefixes.
 
@@ -397,8 +397,8 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def build_regions(self, region, text, match_data, quote, replacement):
         """Divide `region` into 3 sub-regions: start, end and inner.
 
-        The start region contains only the quote chars at the left border
-        The end region contains only the quote chars at the right border
+        The start region contains only the quote chars at the left border.
+        The end region contains only the quote chars at the right border.
         The inner region contains the text inbetween.
 
         Returned value is a dict:
