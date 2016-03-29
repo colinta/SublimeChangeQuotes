@@ -1,0 +1,18 @@
+Installation instructions for ChangeQuotes, version 2.2.0
+
+TL;DR - try restarting Sublime Text
+
+Thanks to the awesome refactor from Simeon Manolov (@smanolloff), we have
+migrated to a settings-file-based code base.  This adds support for JavaScript's
+backtick-strings, but the settings file MAY not be loaded automatically!  Try
+this: open a new file, put it in javascript (or python or ruby) syntax, type a
+string literal, and activate the "change_quotes" command.  If it doesn't work,
+just restart Sublime Text and you should be all good.
+
+If you continue to have trouble, open an issue!
+
+https://github.com/colinta/SublimeChangeQuotes/issues
+
+Thanks!
+
+Colin T.A. Gray, and another big thanks to Simeon Manolov. :)
