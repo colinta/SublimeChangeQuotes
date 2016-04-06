@@ -386,10 +386,15 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         """
         cycle = itertools.cycle(quote_list)
+        i = 0
 
         # Loop until the quote is found.
         # The quote after it is the replacement
         while quote != next(cycle):
+            i += 1
+            if i > 100:
+                raise Exception("Loop detected")
+
             continue
 
         return next(cycle)
