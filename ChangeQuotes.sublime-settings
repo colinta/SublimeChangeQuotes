@@ -4,6 +4,10 @@
     "default": {
       "quotes": [["'", "\""]]
     },
+    "source.livescript": {
+      "custom": ["livescript"],
+      "quotes": [["'", "\""]]
+    },
     // "source.js": {
     //   "quotes": [["'", "\"", "`"]]
     // },

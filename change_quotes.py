@@ -31,6 +31,7 @@ def reorder_list_settings(list_settings):
     for scope, conf in list_settings.items():
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
+        custom = conf.get("custom", None)
 
         # In the sub-lists, place the longest item first
         for ql in quote_lists:
@@ -39,7 +40,7 @@ def reorder_list_settings(list_settings):
         # In the master list, place the sub-list with the longest item first
         quote_lists.sort(key=lambda x: len(x[0]), reverse=True)
         prefixes.sort(key=len, reverse=True)
-        list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
+        list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists, "custom": custom}
 
     return list_settings
 
@@ -104,6 +105,21 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         if not region:
             return
 
+        if self.custom:
+            fn_name = self.custom[0]
+            try:
+                fn = getattr(self, fn_name)
+            except AttributeError:
+                return
+
+            try:
+                fn_args = self.custom[1]
+            except IndexError:
+                fn_args = []
+
+            if fn(region, *fn_args) != 'next':
+                return
+
         text = self.view.substr(region)
         regex_tuples = self.build_regex_tuples()
         match_data, quote_list = self.find_best_match(text, regex_tuples)
@@ -149,6 +165,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
         self.quote_lists = config["lists"]["default"]["quotes"]
         self.prefix_list = config["lists"]["default"]["prefixes"]
+        self.custom = config["lists"]["default"]["custom"]
         best = 0
 
         debug("Working with: %s" % config)
@@ -159,9 +176,10 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             if score > best:
                 self.quote_lists = conf["quotes"]
                 self.prefix_list = conf["prefixes"]
+                self.custom = conf["custom"]
 
-        debug("Quotes: %s, Prefixes: %s" % (self.quote_lists,
-                                            self.prefix_list))
+        debug("Quotes: %s, Prefixes: %s, Custom: %s" % (self.quote_lists,
+                                            self.prefix_list, self.custom))
 
     def expand_region(self, sel_region):
         """Expand working region to the quote extents.
@@ -482,6 +500,26 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         inner_text = inner_text.replace(esc_quote, esc_replacement)
 
         self.view.replace(self.edit, region, inner_text)
+
+    def livescript(self, region):
+        first_char = self.view.substr(sublime.Region(region.begin(), region.begin() + 1))
+        if first_char == '\\':
+            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end()))
+            replacement = "'%s'" % (inner)
+            self.view.replace(self.edit, region, replacement)
+        elif first_char == '"':
+            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end() - 1))
+            inner_test = re.compile(r"[)\]},; \t\n\r]")
+            if inner_test.search(inner):
+                return 'next'
+            next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
+            next_test = re.compile(r"[^)\]},; \t\n\r]")
+            if next_test.search(next_char):
+                return 'next'
+            replacement = "\\%s" % (inner)
+            self.view.replace(self.edit, region, replacement)
+        else:
+            return 'next'
 
 
 if not ST3:
