@@ -512,7 +512,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             self.view.replace(self.edit, region, replacement)
         elif first_char == '"':
             inner = self.view.substr(sublime.Region(region.begin() + 1, region.end() - 1))
-            inner_test = re.compile(r"[)\]},; \t\n\r]")
+            if inner == '':
+                return 'next'
+            inner_test = re.compile(r"^.+[)\]},; \t\n\r]")
             if inner_test.search(inner):
                 return 'next'
             next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
