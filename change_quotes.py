@@ -502,8 +502,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         self.view.replace(self.edit, region, inner_text)
 
     def livescript(self, region):
-        first_char = self.view.substr(sublime.Region(region.begin(), region.begin() + 1))
-        if first_char == '\\':
+        first_3_chars = self.view.substr(sublime.Region(region.begin(), region.begin() + 3))
+        first_char = first_3_chars[0]
+        if first_3_chars in ("'''", '"""'):
+            return 'next'
+        elif first_char == '\\':
             inner = self.view.substr(sublime.Region(region.begin() + 1, region.end()))
             replacement = "'%s'" % (inner)
             self.view.replace(self.edit, region, replacement)
