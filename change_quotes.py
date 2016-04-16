@@ -488,16 +488,18 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         inner_text = self.view.substr(region)
 
         # ESCAPE already existing new quotes in the inner region
-        unesc_quote = replacement
-        unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
-        debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
-        inner_text = inner_text.replace(unesc_quote, unesc_replacement)
+        if replacement:
+            unesc_quote = replacement
+            unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
+            debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
+            inner_text = inner_text.replace(unesc_quote, unesc_replacement)
 
         # UNESCAPE escaped old quotes in the inner reagion
-        esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
-        esc_replacement = quote
-        debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
-        inner_text = inner_text.replace(esc_quote, esc_replacement)
+        if quote:
+            esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
+            esc_replacement = quote
+            debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
+            inner_text = inner_text.replace(esc_quote, esc_replacement)
 
         self.view.replace(self.edit, region, inner_text)
 
@@ -507,11 +509,14 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         if first_3_chars in ("'''", '"""'):
             return 'next'
         elif first_char == '\\':
-            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end()))
+            inner_region = sublime.Region(region.begin() + 1, region.end())
+            inner = self.view.substr(inner_region)
             replacement = "'%s'" % (inner)
             self.view.replace(self.edit, region, replacement)
+            self.escape_unescape(inner_region, None, "'")
         elif first_char == '"':
-            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end() - 1))
+            inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
+            inner = self.view.substr(inner_region)
             if inner == '':
                 return 'next'
             inner_test = re.compile(r"^.+[)\]},; \t\n\r]")
@@ -523,6 +528,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 return 'next'
             replacement = "\\%s" % (inner)
             self.view.replace(self.edit, region, replacement)
+            self.escape_unescape(inner_region, '"', None)
         else:
             return 'next'
 
