@@ -515,7 +515,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             inner_region = sublime.Region(region.begin() + 1, region.end())
             inner = self.view.substr(inner_region)
             replacement = "'%s'" % (inner)
-            self.view.replace(self.edit, region, replacement)
+            self.replace_quotes(region, replacement)
             self.escape_unescape(inner_region, None, r"\\", r"\\$")
             self.escape_unescape(inner_region, None, "'")
         elif first_char == '"':
@@ -531,7 +531,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             if next_test.search(next_char):
                 return 'next'
             replacement = "\\%s" % (inner)
-            self.view.replace(self.edit, region, replacement)
+            self.replace_quotes(region, replacement)
             self.escape_unescape(inner_region, '"', None)
         else:
             return 'next'
