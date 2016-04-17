@@ -523,11 +523,11 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             inner = self.view.substr(inner_region)
             if inner == '':
                 return 'next'
-            inner_test = re.compile(r"^.+[)\]},; \t\n\r]")
+            inner_test = re.compile(r"^.+[)\]},;\s]")
             if inner_test.search(inner):
                 return 'next'
             next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
-            next_test = re.compile(r"[^)\]},; \t\n\r]")
+            next_test = re.compile(r"[^)\]},;\s]")
             if next_test.search(next_char):
                 return 'next'
             replacement = "\\%s" % (inner)
