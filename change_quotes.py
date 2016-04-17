@@ -509,26 +509,20 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def livescript(self, region):
         first_3_chars = self.view.substr(sublime.Region(region.begin(), region.begin() + 3))
         first_char = first_3_chars[0]
-        if first_3_chars in ("'''", '"""'):
-            return 'next'
-        elif first_char == '\\':
+        if first_char == '\\':
             inner_region = sublime.Region(region.begin() + 1, region.end())
             inner = self.view.substr(inner_region)
             replacement = "'%s'" % (inner)
             self.replace_quotes(region, replacement)
             self.escape_unescape(inner_region, None, r"\\", r"\\$")
             self.escape_unescape(inner_region, None, "'")
-        elif first_char == '"':
+        elif first_char == '"' and first_3_chars != '"""':
             inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
             inner = self.view.substr(inner_region)
-            if inner == '':
-                return 'next'
             inner_test = re.compile(r"^.+[)\]},;\s]")
-            if inner_test.search(inner):
-                return 'next'
             next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
             next_test = re.compile(r"[^)\]},;\s]")
-            if next_test.search(next_char):
+            if inner == '' or inner_test.search(inner) or next_test.search(next_char):
                 return 'next'
             replacement = "\\%s" % (inner)
             self.replace_quotes(region, replacement)
