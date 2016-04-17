@@ -486,20 +486,21 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
         debug("Replace %s with %s in %s" % (quote, replacement, region))
         inner_text = self.view.substr(region)
+        even_backslashes_re = r"(?<!\\)((?:\\\\)*)"
 
         # ESCAPE already existing new quotes in the inner region
         if replacement:
-            unesc_quote = replacement
-            unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
+            unesc_quote = even_backslashes_re + re.escape(replacement)
+            unesc_replacement = r"\g<1>" + re.sub(r"(.)", r"\\\g<1>", replacement)
             debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
-            inner_text = inner_text.replace(unesc_quote, unesc_replacement)
+            inner_text = re.sub(unesc_quote, unesc_replacement, inner_text)
 
-        # UNESCAPE escaped old quotes in the inner reagion
+        # UNESCAPE escaped old quotes in the inner region
         if quote:
-            esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
-            esc_replacement = quote
-            debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
-            inner_text = inner_text.replace(esc_quote, esc_replacement)
+            esc_quote = even_backslashes_re + re.escape(re.sub(r"(.)", r"\\\g<1>", quote))
+            esc_replacement = r"\g<1>" + quote
+            debug("Unescape: replace %s with %s" % (esc_quote, esc_replacement))
+            inner_text = re.sub(esc_quote, esc_replacement, inner_text)
 
         self.view.replace(self.edit, region, inner_text)
 
