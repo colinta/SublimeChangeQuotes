@@ -462,7 +462,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         debug("Replace: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
-    def escape_unescape(self, region, quote, replacement):
+    def escape_unescape(self, region, quote, replacement, replacement_re = None):
         r"""In `region`, escape `replacement` and unescape `quote`.
 
         The escaped values are constructed from `replacement` by prepending
@@ -490,7 +490,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         # ESCAPE already existing new quotes in the inner region
         if replacement:
-            unesc_quote = even_backslashes_re + re.escape(replacement)
+            if not replacement_re:
+                replacement_re = re.escape(replacement)
+            unesc_quote = even_backslashes_re + replacement_re
             unesc_replacement = r"\g<1>" + re.sub(r"(.)", r"\\\g<1>", replacement)
             debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
             inner_text = re.sub(unesc_quote, unesc_replacement, inner_text)
@@ -514,6 +516,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             inner = self.view.substr(inner_region)
             replacement = "'%s'" % (inner)
             self.view.replace(self.edit, region, replacement)
+            self.escape_unescape(inner_region, None, r"\\", r"\\$")
             self.escape_unescape(inner_region, None, "'")
         elif first_char == '"':
             inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
