@@ -113,11 +113,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
                 return
 
             try:
-                fn_args = self.custom[1]
+                fn_kwargs = self.custom[1]
+                if not isinstance(fn_kwargs, dict):
+                    fn_kwargs = {}
             except IndexError:
-                fn_args = []
+                fn_kwargs = {}
 
-            if fn(region, *fn_args) != 'next':
+            if fn(region, **fn_kwargs) != 'next':
                 return
 
         text = self.view.substr(region)
