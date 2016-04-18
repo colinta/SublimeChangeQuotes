@@ -508,7 +508,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         self.view.replace(self.edit, region, inner_text)
 
-    def livescript(self, region):
+    def livescript(self, region, backslash_push = False):
         first_3_chars = self.view.substr(sublime.Region(region.begin(), region.begin() + 3))
         first_char = first_3_chars[0]
         if first_char == '\\':
@@ -522,10 +522,17 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
             inner = self.view.substr(inner_region)
             inner_test = re.compile(r"^.+[)\]},;\s]")
+            if inner == '' or inner_test.search(inner):
+                return 'next'
             next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
             next_test = re.compile(r"[^)\]},;\s]")
-            if inner == '' or inner_test.search(inner) or next_test.search(next_char):
-                return 'next'
+            if next_test.search(next_char):
+                if backslash_push:
+                    # pushing the backslash string away from the adjacent character
+                    # to prevent merging it into the backslash string
+                    inner += ' '
+                else:
+                    return 'next'
             replacement = "\\%s" % (inner)
             self.replace_quotes(region, replacement)
             self.escape_unescape(inner_region, '"', None)

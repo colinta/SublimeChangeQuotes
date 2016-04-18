@@ -5,7 +5,13 @@
       "quotes": [["'", "\""]]
     },
     "source.livescript": {
-      "custom": ["livescript"],
+      "custom": ["livescript", {
+        // enables "pushing behavior"
+        // - set to true, to convert strings like `"prop": 1` to `\prop : 1`,
+        //   with the space after the string
+        // - set to false, to convert strings like `"prop": 1` directly to `'prop': 1`
+        "backslash_push": false
+      }],
       "quotes": [["'", "\""], ["'''", "\"\"\""]]
     },
     // "source.js": {
