@@ -7,6 +7,12 @@
     // "source.js": {
     //   "quotes": [["'", "\"", "`"]]
     // },
+    "source.coffee": {
+      "quotes": [["'", "\""], ["'''", "\"\"\""]]
+    },
+    "source.litcoffee": {
+      "quotes": [["'", "\""], ["'''", "\"\"\""]]
+    },
     "source.python": {
       "prefixes": [
         "r", "u", "ur", "R", "U", "UR", "Ur", "uR",
