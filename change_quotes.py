@@ -462,7 +462,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         debug("Replace: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
-    def escape_unescape(self, region, quote, replacement):
+    def escape_unescape(self, region, quote, replacement, replacement_re = None):
         r"""In `region`, escape `replacement` and unescape `quote`.
 
         The escaped values are constructed from `replacement` by prepending
@@ -486,38 +486,47 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
         debug("Replace %s with %s in %s" % (quote, replacement, region))
         inner_text = self.view.substr(region)
+        even_backslashes_re = r"(?<!\\)((?:\\\\)*)"
 
         # ESCAPE already existing new quotes in the inner region
-        unesc_quote = replacement
-        unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
-        debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
-        inner_text = inner_text.replace(unesc_quote, unesc_replacement)
+        if replacement:
+            if not replacement_re:
+                replacement_re = re.escape(replacement)
+            unesc_quote = even_backslashes_re + replacement_re
+            unesc_replacement = r"\g<1>" + re.sub(r"(.)", r"\\\g<1>", replacement)
+            debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
+            inner_text = re.sub(unesc_quote, unesc_replacement, inner_text)
 
-        # UNESCAPE escaped old quotes in the inner reagion
-        esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
-        esc_replacement = quote
-        debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
-        inner_text = inner_text.replace(esc_quote, esc_replacement)
+        # UNESCAPE escaped old quotes in the inner region
+        if quote:
+            esc_quote = even_backslashes_re + re.escape(re.sub(r"(.)", r"\\\g<1>", quote))
+            esc_replacement = r"\g<1>" + quote
+            debug("Unescape: replace %s with %s" % (esc_quote, esc_replacement))
+            inner_text = re.sub(esc_quote, esc_replacement, inner_text)
 
         self.view.replace(self.edit, region, inner_text)
 
     def livescript(self, region):
-        first_char = self.view.substr(sublime.Region(region.begin(), region.begin() + 1))
+        first_3_chars = self.view.substr(sublime.Region(region.begin(), region.begin() + 3))
+        first_char = first_3_chars[0]
         if first_char == '\\':
-            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end()))
+            inner_region = sublime.Region(region.begin() + 1, region.end())
+            inner = self.view.substr(inner_region)
             replacement = "'%s'" % (inner)
-            self.view.replace(self.edit, region, replacement)
-        elif first_char == '"':
-            inner = self.view.substr(sublime.Region(region.begin() + 1, region.end() - 1))
-            inner_test = re.compile(r"[)\]},; \t\n\r]")
-            if inner_test.search(inner):
-                return 'next'
+            self.replace_quotes(region, replacement)
+            self.escape_unescape(inner_region, None, r"\\", r"\\$")
+            self.escape_unescape(inner_region, None, "'")
+        elif first_char == '"' and first_3_chars != '"""':
+            inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
+            inner = self.view.substr(inner_region)
+            inner_test = re.compile(r"^.+[)\]},;\s]")
             next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
-            next_test = re.compile(r"[^)\]},; \t\n\r]")
-            if next_test.search(next_char):
+            next_test = re.compile(r"[^)\]},;\s]")
+            if inner == '' or inner_test.search(inner) or next_test.search(next_char):
                 return 'next'
             replacement = "\\%s" % (inner)
-            self.view.replace(self.edit, region, replacement)
+            self.replace_quotes(region, replacement)
+            self.escape_unescape(inner_region, '"', None)
         else:
             return 'next'
 

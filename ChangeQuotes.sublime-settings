@@ -6,7 +6,7 @@
     },
     "source.livescript": {
       "custom": ["livescript"],
-      "quotes": [["'", "\""]]
+      "quotes": [["'", "\""], ["'''", "\"\"\""]]
     },
     // "source.js": {
     //   "quotes": [["'", "\"", "`"]]
