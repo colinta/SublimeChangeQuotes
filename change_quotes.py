@@ -467,6 +467,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
     def escape_unescape(self, region, quote, replacement, replacement_re = None):
         r"""In `region`, escape `replacement` and unescape `quote`.
 
+        `replacement_re` could be specified as a special regex to search for
+        a pattern to escape. If is falsy, it is generated from `replacement`.
+        It is advised to pass a value to `replacement_re` as a named argument.
+
+        If `replacement` is falsy, then no escaping is performed.
+        If `quote` is falsy, then no unescaping is performed.
+
         The escaped values are constructed from `replacement` by prepending
         each of its characters with a backslash. E.g:
         ' becomes \'
