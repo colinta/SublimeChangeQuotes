@@ -268,11 +268,13 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         # The sub-tuple contains match distances (left, right) from `ref`
         #
         for q in all_quotes:
+            escaped_q = re.escape(q)
+
             # http://stackoverflow.com/a/11819111
-            regex_right = re.compile(r"(?<!\\)(?:\\\\)*(%s)" % q)
+            regex_right = re.compile(r"(?<!\\)(?:\\\\)*(%s)" % escaped_q)
 
             # left is reversed => escape symbol is *after* the quote
-            regex_left = re.compile(r"(%s)(?:\\\\)*(?!\\)" % q)
+            regex_left = re.compile(r"(%s)(?:\\\\)*(?!\\)" % escaped_q)
 
             debug("[left] Trying %s with %s" % (q, regex_left.pattern))
             debug("[right] Trying %s with %s" % (q, regex_right.pattern))
@@ -331,7 +333,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         Returned value is a _sre.SRE_Pattern object.
 
         """
-        wrapped_quotes = ["(?:%s)" % (q) for q in quotes_list]
+        wrapped_quotes = ["(?:%s)" % (re.escape(q)) for q in quotes_list]
         joined_quotes = "|".join(wrapped_quotes)
 
         wrapped_prefixes = ["(?:%s)" % (p) for p in self.prefix_list]
@@ -386,10 +388,15 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         """
         cycle = itertools.cycle(quote_list)
+        i = 0
 
         # Loop until the quote is found.
         # The quote after it is the replacement
         while quote != next(cycle):
+            i += 1
+            if i > 100:
+                raise Exception("Loop detected")
+
             continue
 
         return next(cycle)
