@@ -1,0 +1,5 @@
+ChangeQuotes 2.3.0 Changelog:
+
+* Support for "special" characters, such as |, *, ... etc
+* Simple protection against infinite loops now raises an exception in case something goes very wrong.
+
