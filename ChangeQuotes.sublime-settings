@@ -7,6 +7,9 @@
     // "source.js": {
     //   "quotes": [["'", "\"", "`"]]
     // },
+    "source.json": {
+      "quotes": [["\""]]
+    },
     "source.coffee": {
       "quotes": [["'", "\""], ["'''", "\"\"\""]]
     },
