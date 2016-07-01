@@ -31,6 +31,7 @@ def reorder_list_settings(list_settings):
     for scope, conf in list_settings.items():
         prefixes = conf.get("prefixes", [])
         quote_lists = conf.get("quotes", [])
+        custom = conf.get("custom", None)
 
         # In the sub-lists, place the longest item first
         for ql in quote_lists:
@@ -39,7 +40,7 @@ def reorder_list_settings(list_settings):
         # In the master list, place the sub-list with the longest item first
         quote_lists.sort(key=lambda x: len(x[0]), reverse=True)
         prefixes.sort(key=len, reverse=True)
-        list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists}
+        list_settings[scope] = {"prefixes": prefixes, "quotes": quote_lists, "custom": custom}
 
     return list_settings
 
@@ -104,6 +105,23 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         if not region:
             return
 
+        if self.custom:
+            fn_name = self.custom[0]
+            try:
+                fn = getattr(self, fn_name)
+            except AttributeError:
+                return
+
+            try:
+                fn_kwargs = self.custom[1]
+                if not isinstance(fn_kwargs, dict):
+                    fn_kwargs = {}
+            except IndexError:
+                fn_kwargs = {}
+
+            if fn(region, **fn_kwargs) != 'next':
+                return
+
         text = self.view.substr(region)
         regex_tuples = self.build_regex_tuples()
         match_data, quote_list = self.find_best_match(text, regex_tuples)
@@ -149,6 +167,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
         self.quote_lists = config["lists"]["default"]["quotes"]
         self.prefix_list = config["lists"]["default"]["prefixes"]
+        self.custom = config["lists"]["default"]["custom"]
         best = 0
 
         debug("Working with: %s" % config)
@@ -159,9 +178,10 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
             if score > best:
                 self.quote_lists = conf["quotes"]
                 self.prefix_list = conf["prefixes"]
+                self.custom = conf["custom"]
 
-        debug("Quotes: %s, Prefixes: %s" % (self.quote_lists,
-                                            self.prefix_list))
+        debug("Quotes: %s, Prefixes: %s, Custom: %s" % (self.quote_lists,
+                                            self.prefix_list, self.custom))
 
     def expand_region(self, sel_region):
         """Expand working region to the quote extents.
@@ -451,8 +471,15 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         debug("Replace: %s with %s" % (self.view.substr(region), replacement))
         self.view.replace(self.edit, region, replacement)
 
-    def escape_unescape(self, region, quote, replacement):
+    def escape_unescape(self, region, quote, replacement, replacement_re = None):
         r"""In `region`, escape `replacement` and unescape `quote`.
+
+        `replacement_re` could be specified as a special regex to search for
+        a pattern to escape. If is falsy, it is generated from `replacement`.
+        It is advised to pass a value to `replacement_re` as a named argument.
+
+        If `replacement` is falsy, then no escaping is performed.
+        If `quote` is falsy, then no unescaping is performed.
 
         The escaped values are constructed from `replacement` by prepending
         each of its characters with a backslash. E.g:
@@ -475,20 +502,56 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         """
         debug("Replace %s with %s in %s" % (quote, replacement, region))
         inner_text = self.view.substr(region)
+        even_backslashes_re = r"(?<!\\)((?:\\\\)*)"
 
         # ESCAPE already existing new quotes in the inner region
-        unesc_quote = replacement
-        unesc_replacement = re.sub(r"(.)", r"\\\g<1>", unesc_quote)
-        debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
-        inner_text = inner_text.replace(unesc_quote, unesc_replacement)
+        if replacement:
+            if not replacement_re:
+                replacement_re = re.escape(replacement)
+            unesc_quote = even_backslashes_re + replacement_re
+            unesc_replacement = r"\g<1>" + re.sub(r"(.)", r"\\\g<1>", replacement)
+            debug("Escape: replace %s with %s" % (unesc_quote, unesc_replacement))
+            inner_text = re.sub(unesc_quote, unesc_replacement, inner_text)
 
-        # UNESCAPE escaped old quotes in the inner reagion
-        esc_quote = re.sub(r"(.)", r"\\\g<1>", quote)
-        esc_replacement = quote
-        debug("Unesacpe: Replace %s with %s" % (esc_quote, esc_replacement))
-        inner_text = inner_text.replace(esc_quote, esc_replacement)
+        # UNESCAPE escaped old quotes in the inner region
+        if quote:
+            esc_quote = even_backslashes_re + re.escape(re.sub(r"(.)", r"\\\g<1>", quote))
+            esc_replacement = r"\g<1>" + quote
+            debug("Unescape: replace %s with %s" % (esc_quote, esc_replacement))
+            inner_text = re.sub(esc_quote, esc_replacement, inner_text)
 
         self.view.replace(self.edit, region, inner_text)
+
+    def livescript(self, region, backslash_push = False):
+        first_3_chars = self.view.substr(sublime.Region(region.begin(), region.begin() + 3))
+        first_char = first_3_chars[0]
+        if first_char == '\\':
+            inner_region = sublime.Region(region.begin() + 1, region.end())
+            inner = self.view.substr(inner_region)
+            replacement = "'%s'" % (inner)
+            self.replace_quotes(region, replacement)
+            self.escape_unescape(inner_region, None, r"\\", replacement_re = r"\\$")
+            self.escape_unescape(inner_region, None, "'")
+        elif first_char == '"' and first_3_chars != '"""':
+            inner_region = sublime.Region(region.begin() + 1, region.end() - 1)
+            inner = self.view.substr(inner_region)
+            inner_test = re.compile(r"^.+[)\]},;\s]")
+            if inner == '' or inner_test.search(inner):
+                return 'next'
+            next_char = self.view.substr(sublime.Region(region.end(), region.end() + 1))
+            next_test = re.compile(r"[^)\]},;\s]")
+            if next_test.search(next_char):
+                if backslash_push:
+                    # pushing the backslash string away from the adjacent character
+                    # to prevent merging it into the backslash string
+                    inner += ' '
+                else:
+                    return 'next'
+            replacement = "\\%s" % (inner)
+            self.replace_quotes(region, replacement)
+            self.escape_unescape(inner_region, '"', None)
+        else:
+            return 'next'
 
 
 if not ST3:
