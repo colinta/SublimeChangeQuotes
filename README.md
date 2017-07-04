@@ -15,8 +15,14 @@ Or:
     - Windows: %APPDATA%/Sublime Text 3/Packages/
     - Linux: ~/.Sublime Text 3/Packages/ or ~/.config/sublime-text-3/Packages
 
-2. clone this repo
-3. Install keymaps for the commands (see Example.sublime-keymap for my preferred keys)
+2. Clone this repo
+
+### Keymaps
+Put the following inside your `.sublime_keymap` (`Sublime Text` -> `Preferences` -> `Key Bindings`):
+
+`{ "keys": ["ctrl+shift+'"], "command": "change_quotes" }`
+
+Now you can toggle quotes with `CTRL`+`Shift`+`'`.
 
 ### Sublime Text 2
 
