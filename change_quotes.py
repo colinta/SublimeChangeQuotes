@@ -266,7 +266,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         scope = self.view.extract_scope(ref)
 
         # flatten -- http://stackoverflow.com/a/952952
-        all_quotes = [item for qlist in self.quote_lists for item in qlist]
+        all_quotes = self.flatten_quote_list()
 
         # Get strings to the left and to the right of cursor
         # (up to a the scope extent)
@@ -334,6 +334,17 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
 
         return region
 
+    def flatten_quote_list(self):
+        retval = []
+        for qlist in self.quote_lists:
+            for item in qlist:
+                if isinstance(item, str):
+                    retval.append(item)
+                else:
+                    retval += [s for s in item]
+        debug("FLATTEN: %s" % retval)
+        return retval
+
     def build_regex_tuples(self):
         """For each list in self.quote_lists, return a tuple (regex, list).
 
@@ -356,12 +367,9 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         wrapped_quotes = ["(?:%s)" % (re.escape(q)) for q in quotes_list]
         joined_quotes = "|".join(wrapped_quotes)
 
-        wrapped_prefixes = ["(?:%s)" % (p) for p in self.prefix_list]
-        joined_prefixes = "|".join(wrapped_prefixes)
-
-        pattern = "(%s)" % (joined_quotes)
-
         if self.prefix_list:
+            wrapped_prefixes = ["(?:%s)" % (p) for p in self.prefix_list]
+            joined_prefixes = "|".join(wrapped_prefixes)
             pattern = "^(?:%s)?(%s)" % (joined_prefixes, joined_quotes)
         else:
             pattern = "^(%s)" % (joined_quotes)
@@ -414,7 +422,7 @@ class ChangeQuotesCommand(sublime_plugin.TextCommand):
         # The quote after it is the replacement
         while quote != next(cycle):
             i += 1
-            if i > 100:
+            if i > len(quote_list) + 1:
                 raise Exception("Loop detected")
 
             continue
