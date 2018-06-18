@@ -24,13 +24,6 @@ Put the following inside your `.sublime_keymap` (`Sublime Text` -> `Preferences`
 
 Now you can toggle quotes with `CTRL`+`Shift`+`'`.
 
-### Sublime Text 2
-
-1. Open the Sublime Text 2 Packages folder
-2. clone this repo, but use the `st2` branch
-
-       git clone -b st2 git@github.com:colinta/SublimeChangeQuotes
-
 How to use
 ----------
 
