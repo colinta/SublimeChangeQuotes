@@ -15,19 +15,20 @@
               {
                 "command": "open_file",
                 "args": {
-                  "file": "${packages}/ChangeQuotes/ChangeQuotes.sublime-settings"
+                  "file": "${packages}/ChangeQuotes/README.md"
                 },
-                "caption": "Settings – Default"
-              },
-              {
-                "command": "open_file",
-                "args": {
-                  "file": "${packages}/User/ChangeQuotes.sublime-settings"
-                },
-                "caption": "Settings – User"
+                "caption": "README"
               },
               {
                 "caption": "-"
+              },
+              {
+                "caption": "Settings",
+                "command": "edit_settings",
+                "args": {
+                  "base_file": "${packages}/ChangeQuotes/ChangeQuotes.sublime-settings",
+                  "default": "// ChangeQuotes Preferences – User\n// ====================================================\n\n{\n\t$0\n}\n"
+                }
               }
             ]
           }
