@@ -4,6 +4,9 @@
     "default": {
       "quotes": [["'", "\""]]
     },
+    "text.html.markdown": {
+      "quotes": [["'", "\"", "“”", "‘’"]]
+    },
     "source.livescript": {
       "custom": ["livescript", {
         // enables "pushing behavior"
@@ -14,9 +17,12 @@
       }],
       "quotes": [["'", "\""], ["'''", "\"\"\""]]
     },
-    // "source.js": {
-    //   "quotes": [["'", "\"", "`"]]
-    // },
+    "source.js": {
+      "quotes": [["'", "\"", "`"]]
+    },
+    "source.ts": {
+      "quotes": [["'", "\"", "`"]]
+    },
     "source.json": {
       "quotes": [["\""]]
     },
