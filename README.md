@@ -6,23 +6,19 @@ Converts single to double or double to single quotes.  Attempts to preserve corr
 Installation
 ------------
 
-1. Using Package Control, install "ChangeQuotes"
+Using Package Control, install "ChangeQuotes" or clone this repo in your packages folder.
 
-Or:
+I recommended you add key bindings for the commands. I've included my preferred bindings below.
+Copy them to your key bindings file (⌘⇧,).
 
-1. Open the Sublime Text Packages folder
-    - OS X: ~/Library/Application Support/Sublime Text 3/Packages/
-    - Windows: %APPDATA%/Sublime Text 3/Packages/
-    - Linux: ~/.Sublime Text 3/Packages/ or ~/.config/sublime-text-3/Packages
+Key Bindings
+------------
 
-2. Clone this repo
+Copy these to your user key bindings file.
 
-### Keymaps
-Put the following inside your `.sublime_keymap` (`Sublime Text` -> `Preferences` -> `Key Bindings`):
-
-`{ "keys": ["ctrl+shift+'"], "command": "change_quotes" }`
-
-Now you can toggle quotes with `CTRL`+`Shift`+`'`.
+<!-- keybindings start -->
+    { "keys": ["ctrl+shift+'"], "command": "change_quotes" },
+<!-- keybindings stop -->
 
 How to use
 ----------
